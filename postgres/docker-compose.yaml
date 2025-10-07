@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - appnet
+      - internal
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - pg_backups:/backups
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    environment:
+      - TZ=Asia/Dhaka
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      TZ: Asia/Dhaka
+    networks:
+      - internal
+      - appnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=appnet"
+      - "traefik.http.routers.adminer.rule=Host(`pg.example.com`)"
+      - "traefik.http.routers.adminer.entrypoints=websecure"
+      - "traefik.http.routers.adminer.tls=true"
+      - "traefik.http.routers.adminer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  pg_data:
+  pg_backups:
+
+networks:
+  appnet:
+    external: true
+  internal:
+    driver: bridge

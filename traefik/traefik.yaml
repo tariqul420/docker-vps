@@ -1,0 +1,39 @@
+# Traefik static config (v3) — works behind Cloudflare Proxied
+entryPoints:
+  web:                          # :80 (ACME http challenge served here)
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:                    # :443
+    address: ":443"
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: proxy             # the external docker network Traefik shares with apps
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@example.com
+      storage: /acme.json
+      httpChallenge:           # <-- use http-01 for Cloudflare Proxied
+        entryPoint: web        # challenge served on :80; Traefik excludes ACME from redirect
+
+# (Optional) dashboard at :8080 — handy for debugging. Remove if you don’t want it.
+api:
+  insecure: true
+  dashboard: true
+
+# Logs (keep light in prod; DEBUG only if needed)
+log:
+  level: INFO
+
+accessLog:
+  format: json
+  bufferingSize: 0
+

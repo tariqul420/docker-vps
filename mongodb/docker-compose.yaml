@@ -1,0 +1,73 @@
+volumes:
+  mongo_data:
+  mongo_backups:
+
+networks:
+  appnet:
+    external: true
+  internal:
+    driver: bridge
+
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: mongodb
+    restart: unless-stopped
+    env_file: .env
+    command: ["--auth"]
+    networks:
+      - appnet
+      - internal
+    volumes:
+      - mongo_data:/data/db
+      - mongo_backups:/backups
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh -u \"$${MONGO_INITDB_ROOT_USERNAME}\" -p \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --quiet --eval \"db.runCommand({ ping: 1 })\""]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    environment:
+      - TZ=Asia/Dhaka
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      ME_CONFIG_MONGODB_URL: "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin"
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
+      ME_CONFIG_BASICAUTH_USERNAME: "${ME_BASIC_AUTH_USER}"
+      ME_CONFIG_BASICAUTH_PASSWORD: "${ME_BASIC_AUTH_PASS}"
+      ME_CONFIG_SITE_HTTPS_ENABLED: "false"
+      TZ: Asia/Dhaka
+    networks:
+      - internal
+      - appnet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=appnet"
+      - "traefik.http.routers.mongo-express.rule=Host(`mongo.example.com`)"
+      - "traefik.http.routers.mongo-express.entrypoints=websecure"
+      - "traefik.http.routers.mongo-express.tls=true"
+      - "traefik.http.routers.mongo-express.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mongo-express.loadbalancer.server.port=8081"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"

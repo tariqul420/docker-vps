@@ -1,0 +1,89 @@
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+
+      # MinIO API (S3)
+      - "traefik.http.routers.minio.rule=Host(`s3.example.com`)"
+      - "traefik.http.routers.minio.entrypoints=websecure"
+      - "traefik.http.routers.minio.tls=true"
+      - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio.service=minio-api"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+
+      # MinIO Console (GUI)
+      - "traefik.http.routers.minio-console.rule=Host(`minio.example.com`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls=true"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio-console.service=minio-console"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    depends_on:
+      - minio
+    environment:
+      IMGPROXY_KEY: ${IMGPROXY_KEY}
+      IMGPROXY_SALT: ${IMGPROXY_SALT}
+
+      # ✅ S3/MinIO enable
+      IMGPROXY_USE_S3: "true"
+      IMGPROXY_S3_REGION: "us-east-1"
+      IMGPROXY_S3_ENDPOINT: "http://minio:9000"   # internal DNS
+      IMGPROXY_S3_USE_PATH_STYLE: "true"
+
+      # MinIO creds
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+
+      IMGPROXY_AUTO_WEBP: "true"
+      IMGPROXY_AUTO_AVIF: "true"
+
+      IMGPROXY_MAX_SRC_RESOLUTION: "100"
+      IMGPROXY_MAX_ANIMATION_FRAMES: "1"
+      IMGPROXY_QUALITY: "85"
+    networks: [web]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.imgproxy.rule=Host(`img.example.com`)"
+      - "traefik.http.routers.imgproxy.entrypoints=websecure"
+      - "traefik.http.routers.imgproxy.tls=true"
+      - "traefik.http.routers.imgproxy.tls.certresolver=letsencrypt"
+      - "traefik.http.services.imgproxy.loadbalancer.server.port=8080"
+
+  filestash:
+    image: machines/filestash:latest
+    container_name: filestash
+    environment:
+      FILESTASH__PLUGINS__S3__ENDPOINT: "http://minio:9000"
+      FILESTASH__PLUGINS__S3__FORCE_PATH_STYLE: "true"
+    depends_on:
+      - minio
+    networks: [web]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.files.rule=Host(`files.example.com`)"
+      - "traefik.http.routers.files.entrypoints=websecure"
+      - "traefik.http.routers.files.tls=true"
+      - "traefik.http.routers.files.tls.certresolver=letsencrypt"
+      - "traefik.http.services.files.loadbalancer.server.port=8334"
+
+networks:
+  web:
+    external: true
+
+volumes:
+  minio-data:
