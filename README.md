@@ -38,8 +38,9 @@ The setup uses Docker external networks:
 2. **Deploy Services**
    ```bash
    # Start Traefik (Required First)
-   cd traefik && cp .env.example .env
-   # Edit .env with your email
+   cd traefik
+   ./setup-env.sh  # Interactive setup
+   # Or: cp .env.example .env && edit manually
    docker compose up -d
 
    # Start Files Gateway
@@ -60,7 +61,7 @@ The setup uses Docker external networks:
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Traefik Dashboard | http://localhost:8080 | Reverse proxy dashboard |
+| Traefik Dashboard | https://traefik.example.com | Reverse proxy dashboard |
 | MinIO Console | https://minio.example.com | S3 storage management |
 | S3 API | https://s3.example.com | S3 compatible API |
 | Image Proxy | https://img.example.com | Image processing service |

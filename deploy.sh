@@ -92,8 +92,26 @@ setup_traefik() {
     
     if [ ! -f .env ]; then
         cp .env.example .env
+        
+        # Update environment variables
         sed -i "s/admin@example.com/$EMAIL/g" .env
-        print_status "Created Traefik .env file"
+        sed -i "s/DOMAIN=example.com/DOMAIN=$DOMAIN/g" .env
+        
+        # Generate secure password hash
+        if command -v htpasswd &> /dev/null; then
+            # Generate random password if not provided
+            DASHBOARD_PASSWORD=$(openssl rand -base64 12 | tr -d "=+/" | cut -c1-12)
+            DASHBOARD_AUTH=$(htpasswd -nb admin "$DASHBOARD_PASSWORD")
+            
+            # Update .env with generated auth
+            echo "TRAEFIK_DASHBOARD_AUTH=$DASHBOARD_AUTH" >> .env
+            
+            print_status "Created Traefik .env file with generated password: $DASHBOARD_PASSWORD"
+            print_warning "Save this password: $DASHBOARD_PASSWORD"
+        else
+            print_warning "htpasswd not found. Using default password 'secret'"
+            echo "TRAEFIK_DASHBOARD_AUTH=admin:\$2y\$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi" >> .env
+        fi
     fi
     
     # Ensure acme.json has correct permissions
@@ -245,7 +263,7 @@ show_access_info() {
     echo "Your services are now running at:"
     echo ""
     echo "📊 Management Interfaces:"
-    echo "  • Traefik Dashboard: http://localhost:8080"
+    echo "  • Traefik Dashboard: https://traefik.$DOMAIN (admin/secret)"
     echo "  • MinIO Console: https://minio.$DOMAIN"
     echo "  • PostgreSQL GUI: https://pg.$DOMAIN"
     echo "  • MongoDB GUI: https://mongo.$DOMAIN"

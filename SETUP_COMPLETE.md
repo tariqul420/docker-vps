@@ -57,7 +57,7 @@ docker-vps/
 | Service | URL | Purpose |
 |---------|-----|---------|
 | 🎛️ **Management** |
-| Traefik Dashboard | http://localhost:8080 | Reverse proxy management |
+| Traefik Dashboard | https://traefik.example.com | Reverse proxy management (admin/secret) |
 | MinIO Console | https://minio.example.com | S3 storage management |
 | Mongo Express | https://mongo.example.com | MongoDB GUI |
 | Adminer | https://pg.example.com | PostgreSQL GUI |

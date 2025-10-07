@@ -12,6 +12,10 @@ docker network create web
 
 ### 2. Configure Environment
 ```bash
+# Automated setup (recommended)
+./setup-env.sh
+
+# Or manual setup
 cp .env.example .env
 # Edit .env with your settings
 ```
@@ -27,18 +31,49 @@ docker compose up -d
 ```bash
 # Let's Encrypt email for SSL certificates
 LETSENCRYPT_EMAIL=admin@example.com
+
+# Domain configuration
+DOMAIN=example.com
+
+# Traefik Dashboard Authentication
+TRAEFIK_DASHBOARD_USER=admin
+TRAEFIK_DASHBOARD_PASSWORD=secret
+
+# Generated password hash (auto-generated)
+TRAEFIK_DASHBOARD_AUTH=admin:$2y$10$...
 ```
+
+### Automated Environment Setup
+Use the provided script for easy configuration:
+```bash
+./setup-env.sh
+```
+This script will:
+- Prompt for domain, email, username, and password
+- Generate secure password hash automatically
+- Update the .env file with all required variables
 
 ### Traefik Configuration (traefik.yaml)
 - HTTP to HTTPS redirect
 - Docker provider with automatic service discovery
 - Let's Encrypt certificates with HTTP challenge
-- Dashboard on port 8080
+- Dashboard accessible via domain with authentication
 
 ## 🌐 Usage
 
 ### Dashboard
-Access Traefik dashboard at: http://localhost:8080
+- **Domain Access**: https://traefik.{DOMAIN} (with SSL and authentication)
+- **Local Access**: http://localhost:8080 (for development)
+- **Credentials**: Set via environment variables
+
+### Manage Dashboard Password
+```bash
+# Change password
+./change-password.sh
+
+# View current config (without showing password)
+grep -E "(DOMAIN|TRAEFIK_DASHBOARD_USER)" .env
+```
 
 ### Adding Services
 Services automatically register with Traefik using Docker labels:
@@ -106,15 +141,33 @@ labels:
 Ensure only ports 80, 443, and optionally 8080 are open to the public.
 
 ### Dashboard Security  
-For production, disable the insecure dashboard or add authentication:
+The dashboard is secured with basic authentication. To change the default password:
 
-```yaml
-# traefik.yaml
-api:
-  dashboard: true
-  # Remove this line in production:
-  # insecure: true
-```
+1. **Generate a password hash:**
+   ```bash
+   # Install htpasswd if not available
+   sudo apt-get install apache2-utils
+   
+   # Generate password hash (replace 'newpassword' with your password)
+   htpasswd -nb admin newpassword
+   ```
+
+2. **Update docker-compose.yaml:**
+   ```yaml
+   # Replace the basicauth.users line with your generated hash
+   - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$2y$$10$$your_generated_hash"
+   ```
+
+3. **Alternative: Use environment variable:**
+   ```yaml
+   # In docker-compose.yaml
+   - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
+   
+   # In .env file
+   TRAEFIK_DASHBOARD_AUTH=admin:$$2y$$10$$your_generated_hash
+   ```
+
+**Default Credentials**: admin / secret (⚠️ Change in production!)
 
 ### SSL Configuration
 The setup uses HTTP challenge for Let's Encrypt. For wildcard certificates, use DNS challenge instead.

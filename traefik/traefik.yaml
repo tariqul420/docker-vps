@@ -1,4 +1,7 @@
-# Traefik static config (v3) — works behind Cloudflare Proxied
+# Traefik static config (v# Dashboard configuration - accessible via traefik.example.com
+api:
+  dashboard: true
+  # Remove insecure: true for production - dashboard will be accessible via domain with auth works behind Cloudflare Proxied
 entryPoints:
   web:                          # :80 (ACME http challenge served here)
     address: ":80"
